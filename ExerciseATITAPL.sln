@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.33530.505
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Linear", "Linear\Linear.fsproj", "{B5CCC3A8-2F66-465B-878C-B12B8BF0D321}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B5CCC3A8-2F66-465B-878C-B12B8BF0D321}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B5CCC3A8-2F66-465B-878C-B12B8BF0D321}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B5CCC3A8-2F66-465B-878C-B12B8BF0D321}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B5CCC3A8-2F66-465B-878C-B12B8BF0D321}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {CC72741C-A576-4399-8CFE-34DC61B88ED5}
+	EndGlobalSection
+EndGlobal

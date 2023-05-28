@@ -1,0 +1,54 @@
+{
+open FSharp.Text.Lexing
+open Syntax
+open Parser
+
+let lexeme lexbuf =
+    LexBuffer<char>.LexemeString lexbuf
+
+let createID fi (str : string) =
+    let c = str.[0]
+    if c >= 'A' && c <= 'Z' then
+        UCID (fi, str)
+    else
+        LCID (fi, str)
+
+let info (lexbuf : LexBuffer<char>) =
+    Some { Start = lexbuf.StartPos; End = lexbuf.EndPos }
+}
+
+let digit = ['0'-'9']
+let whitespace = [' ' '\t' ]
+let newline = ('\n' | '\r' '\n')
+
+
+rule token = parse
+| whitespace     { token lexbuf }
+| newline        { token lexbuf }
+| "\\"           { LAMBDA (info lexbuf) }
+| ":"            { SEMICOLON (info lexbuf) }
+| "."            { DOT (info lexbuf) }
+| "@"            { AT (info lexbuf) }
+| "*"            { STAR (info lexbuf) }
+| "->"           { ARROW (info lexbuf) }
+| ","            { COMMA (info lexbuf) }
+| "="            { EQUAL (info lexbuf) }
+| "lin"          { LIN (info lexbuf) }
+| "un"           { UN (info lexbuf) }
+| "true"         { TRUE (info lexbuf) }
+| "false"        { FALSE (info lexbuf) }
+| "let"          { LET (info lexbuf) }
+| "in"           { IN (info lexbuf) }
+| "if"           { IF (info lexbuf) }
+| "then"         { THEN (info lexbuf) }
+| "else"         { ELSE (info lexbuf) }
+| "("            { LPAREN (info lexbuf) }
+| ")"            { RPAREN (info lexbuf) }
+| "<"            { LESS (info lexbuf) }
+| ">"            { GREATER (info lexbuf) }
+| eof            { EOF }
+| ['A'-'Z' 'a'-'z' '_'] ['A'-'Z' 'a'-'z' '_' '0'-'9' '\'']* 
+                 { createID (info lexbuf) (lexeme lexbuf) }
+
+
+{}
