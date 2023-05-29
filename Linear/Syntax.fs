@@ -88,35 +88,6 @@ module Type =
 
 module Term =
 
-    let map onvar ontype c t =
-        let rec walk c t =
-            match t with
-            | TmVar (fi, x, n) -> onvar fi c x n
-            | TmAbs (fi, q, x, tyT1, t2) ->
-                TmAbs (fi, q, x, ontype c tyT1, walk (c + 1) t2)
-            | TmApp (fi, t1, t2) -> TmApp (fi, walk c t1, walk c t2)
-            | TmIfElse (fi, t1, t2, t3) -> TmIfElse (fi, walk c t1, walk c t2, walk c t3)
-            | TmBool (fi, q, b) -> TmBool (fi, q, b)
-            | TmPair (fi, q, t1, t2) -> TmPair (fi, q, walk c t1, walk c t2)
-            | TmSplit (fi, t1, x, y, t2) -> TmSplit (fi, walk c t1, x, y, walk (c + 2) t2)
-        walk c t
-
-    let shiftAbove d c t =
-      map
-        (fun fi c x n ->
-           if x >= c then TmVar (fi, x + d, n + d) else TmVar (fi, x, n + d))
-        (Type.shiftAbove d) c t
-      
-    let shift d t = shiftAbove d 0 t
-
-    let subst j s t =
-      map
-        (fun fi j x n -> if x = j then shift j s else TmVar (fi, x, n))
-        (fun j tyT -> tyT)
-        j t
-      
-    let substTop s t = shift (-1) (subst 0 (shift 1 s) t)
-
     let info = function
         | TmVar    (fi, _, _)
         | TmBool   (fi, _, _)
@@ -187,7 +158,7 @@ module Context =
             if notIn x (Lin, p) ctx3 then
                 ctx3
             else
-                error fi "fail to check context difference"
+                error fi (sprintf "unused variable: %s" x)
         
         | (x, VarBind (Un, p)) :: ctx2 ->
             let ctx3 = difference fi ctx1 ctx2
@@ -198,35 +169,3 @@ module Context =
         | [] ->
             ctx1
 
-module Pretty =
-
-    let rec qualifierToString q =
-        if q = Lin then "lin " else "" 
-
-    let rec typeToString ((q, pty): Type) =
-        qualifierToString q
-        +   match pty with
-            | PTyBool -> "Bool"
-            | PTyPair (t1, t2) -> sprintf "(%s * %s)" (typeToString t1) (typeToString t2)
-            | PTyArr (t1, t2) -> sprintf "(%s -> %s)" (typeToString t1) (typeToString t2)
-
-    let rec termToString (ctx: Context) = function
-        | TmVar (fi, i, n) ->
-            if ctx.Length = n then
-                Context.index2name fi i ctx
-            else
-                failwithf "bad index: %i in context: %A" i (List.map fst ctx)
-        | TmBool (_, q, b) ->
-            sprintf "%s%b" (qualifierToString q) b
-        | TmAbs (_, q, x, tyT1, t2) ->
-            let ctx' = Context.addName x ctx
-            sprintf "%s(\\%s:%s.%s)" (qualifierToString q) x (typeToString tyT1) (termToString ctx' t2)
-        | TmApp (_, t1, t2) ->
-            sprintf "%s %s" (termToString ctx t1) (termToString ctx t2)
-        | TmIfElse (_, t1, t2, t3) ->
-            sprintf "(if %s then %s else %s)" (termToString ctx t1) (termToString ctx t2) (termToString ctx t3)
-        | TmPair (_, q, t1, t2) ->
-            sprintf "%s<%s,%s>" (qualifierToString q) (termToString ctx t1) (termToString ctx t2)
-        | TmSplit (_, t1, x, y, t2) ->
-            let ctx' = ctx |> Context.addName x |> Context.addName y
-            sprintf "let (%s, %s) = %s in %s" x y (termToString ctx t1) (termToString ctx' t2)

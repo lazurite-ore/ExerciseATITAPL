@@ -19,7 +19,7 @@ let parseString str =
 
     Parser.start Lexer.token lexbuf
 
-let test str =
+let test debug str =
 
     try
         let t = parseString str
@@ -33,6 +33,16 @@ let test str =
         ty
         |> Pretty.typeToString
         |> printfn "type: %s"
+
+        let (s, et) = Evaluation.eval debug t
+
+        et
+        |> Pretty.evalToString []
+        |> printfn "eval: %s"
+
+        s
+        |> Pretty.storeToString
+        |> printfn "store: {\n%s}"
 
         printfn ""
     with
@@ -48,10 +58,19 @@ let test str =
             printfn "%s" msg
 
 
-test "lin \\x:lin Bool.x"
+test false "lin \\x:lin Bool. lin \\y: lin Bool. y"
 
-test "lin \\x:lin Bool.lin true"
+test false "lin \\x:lin Bool. lin \\y: lin Bool. x"
 
-test "lin \\x:lin Bool.(lin \\f:un (un Bool -> lin Bool).lin true) (un \\y:un Bool.x)"
+test false "(lin \\x:lin Bool. lin \\y: lin (Bool * Bool). if x then y else y) (lin true) (lin <true, true>)"
 
-test "lin \\x:lin Bool.((lin \\f:un (un Bool -> lin Bool).lin <f (un true),f (un true)>)) (un \\y:un Bool.x))"
+test false "lin \\x:lin Bool.x"
+
+test false "lin \\x:lin Bool.(lin \\f:un (un Bool -> lin Bool).lin true) (un \\y:un Bool.x)"
+
+test false "lin \\x:lin Bool.((lin \\f:un (un Bool -> lin Bool).lin <f (un true),f (un true)>)) (un \\y:un Bool.x))"
+
+test true "(lin \\x:lin Bool.if (\\b:Bool.b) true then x else x) lin true"
+
+test false "lin \\x:lin Bool.(\\b:Bool.x) true"
+

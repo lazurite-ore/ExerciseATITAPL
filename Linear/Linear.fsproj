@@ -8,6 +8,9 @@
   <ItemGroup>
     <Compile Include="Syntax.fs" />
     <Compile Include="Typing.fs" />
+    <Compile Include="RuntimeData.fs" />
+    <Compile Include="Pretty.fs" />
+    <Compile Include="Evaluation.fs" />
     <FsYacc Include="Parser.fsy">
       <OtherFlags>--module Parser</OtherFlags>
     </FsYacc>

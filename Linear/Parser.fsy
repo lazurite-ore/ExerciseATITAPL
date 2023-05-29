@@ -7,6 +7,13 @@ let createTypeVar str =
     | "Bool" -> PTyBool
     | _ -> failwithf "unsupported type: %s" str
 
+let rec genAppTerm (ls: (Context -> Term) list) (ctx: Context) =
+    let t = ls.Head ctx
+    List.fold (fun t1 t2f ->
+            let t2 = t2f ctx
+            TmApp (Info.combine (Term.info t1) (Term.info t2), t1, t2)
+        ) t ls.Tail
+
 %}
 
 %token EOF
@@ -98,11 +105,11 @@ atomicTerm
         }
     | LCID { fun ctx -> TmVar (fst $1, Context.name2index (fst $1) (snd $1) ctx, Context.len ctx) }
 
+appTerm
+    : atomicTerm appTerm { $1 :: $2 }
+    | atomicTerm { [$1] }
+
 term
-    : atomicTerm term { fun ctx ->
-            let (t1, t2) = ($1 ctx, $2 ctx)
-            TmApp (Info.combine (Term.info t1) (Term.info t2), t1, t2)
-        }
-    | atomicTerm { $1 }
+    : appTerm { genAppTerm $1 }
     
     

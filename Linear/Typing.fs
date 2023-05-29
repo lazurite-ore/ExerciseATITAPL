@@ -53,7 +53,7 @@ let rec typeOf (ctx1: Context) (t: Term) : Type * Context =
         
     | TmAbs (fi, q, x, tyT1, t2) ->
 
-        if x = "y" then
+        if x = "b" then
             ()
 
         let (tyT2, ctx2) = typeOf (Context.addVar x tyT1 ctx1) t2
