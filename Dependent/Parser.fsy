@@ -1,0 +1,96 @@
+%{
+
+open Syntax
+
+type Start = Context -> Term
+
+let createTypeVar (fi, str) (ctx: Context) =
+    match str with
+    | "Unit" -> TyUnit fi
+    | x -> TyVar (fi, Context.name2index fi x ctx, ctx.Length)
+
+let rec genAppTerm (ls: (Context -> Term) list) (ctx: Context) =
+    let t = ls.Head ctx
+    List.fold (fun t1 t2f ->
+            let t2 = t2f ctx
+            TmApp (conInfo (tmInfo t1) (tmInfo t2), t1, t2)
+        ) t ls.Tail
+
+%}
+
+%token EOF
+
+
+
+%token <Info * string> UCID
+%token <Info * string> LCID
+%token <Info> LIN UN TRUE FALSE LET IN IF THEN ELSE TYPE
+%token <Info> LAMBDA SEMICOLON DOT AT ARROW STAR LPAREN RPAREN COMMA EQUAL LESS GREATER PIPEPIPE
+
+%start start
+%type <Start> start
+
+%%
+
+start
+    : term { $1 }
+
+kind
+    : STAR { fun ctx -> KdStar $1 }
+    | PIPEPIPE LCID SEMICOLON type DOT kind { fun ctx ->
+            let tyX = snd $2
+            let ty = $4 ctx
+            let ctx' = Context.addName tyX ctx
+            let k = $6 ctx'
+            KdPi (conInfo $1 (kdInfo k), tyX, ty, k)
+        }
+
+atomicType
+    : LPAREN type RPAREN { fun ctx -> $2 ctx }
+    | UCID { fun ctx -> createTypeVar $1 ctx }
+    | PIPEPIPE LCID SEMICOLON type DOT type { fun ctx ->
+            let x = snd $2
+            let tyT1 = $4 ctx
+            let ctx' = Context.addName x ctx
+            let tyT2 = $6 ctx'
+            TyPi (conInfo $1 (tyInfo tyT2), x, tyT1, tyT2)
+        }
+
+
+type
+    : atomicType { $1 }
+    | atomicType term { fun ctx ->
+            let ty = $1 ctx
+            let t = $2 ctx
+            TyApp (conInfo (tyInfo ty) (tmInfo t), ty, t)
+        }
+
+
+lambdaTerm
+    : LAMBDA LCID SEMICOLON type DOT term { fun ctx ->
+            let x = snd $2
+            let ty = $4 ctx
+            let ctx' = Context.addName x ctx
+            let t = $6 ctx'
+            TmAbs (conInfo $1 (tmInfo t), x, ty, t)
+        }
+
+atomicTerm
+    : LPAREN term RPAREN { $2 }
+    | lambdaTerm { $1 }
+    | LPAREN RPAREN { fun ctx -> TmUnit (conInfo $1 $2) }
+    | LCID { fun ctx -> TmVar (fst $1, Context.name2index (fst $1) (snd $1) ctx, Context.len ctx) }
+    | LET LCID EQUAL term IN term { fun ctx ->
+            let x = snd $2
+            let t1 = $4 ctx
+            let ctx' = Context.addName x ctx
+            let t2 = $6 ctx'
+            TmLet (conInfo $1 (tmInfo t2), x, t1, t2)
+        }
+
+appTerm
+    : atomicTerm appTerm { $1 :: $2 }
+    | atomicTerm { [$1] }
+
+term
+    : appTerm { genAppTerm $1 }
