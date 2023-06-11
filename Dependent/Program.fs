@@ -11,9 +11,9 @@ let parseString str =
                 yield (Lexer.token lexbuf).GetType().Name
         }
     
-    //tokens
-    //|> Seq.fold (fun s e -> s + " " + e) ""
-    //|> printfn "%s"
+    tokens
+    |> Seq.fold (fun s e -> s + " " + e) ""
+    |> printfn "%s"
 
     let lexbuf = LexBuffer<char>.FromString str
 
@@ -63,4 +63,3 @@ let test debug str =
             printfn "%s" msg
 
 test false "let mkthree = \\x:A.\\y:A.\\z:A.cons (succ (succ zero)) z (cons (succ zero) y (cons zero x nil)) in mkthree"
-
