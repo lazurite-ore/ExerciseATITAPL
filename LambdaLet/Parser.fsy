@@ -1,0 +1,174 @@
+%{
+
+open Syntax
+
+type Start = Context -> Term
+type Start1 = Context -> Type
+
+
+let rec genAppType (ls: (Context -> Type) list) (ctx: Context) =
+    let t = ls.Head ctx
+    List.fold (fun t1 t2f ->
+            let t2 = t2f ctx
+            TyApp (Info.con (Type.info t1) (Type.info t2), t1, t2)
+        ) t ls.Tail
+
+type AppArg =
+    | ATmArg of (Context -> Term)
+    | ATyArg of (Context -> Type)
+
+let createTypeVar (fi, str) (ctx: Context) =
+    match str with
+    //| "Unit" -> TyUnit fi
+    | x -> TyVar (fi, Context.name2index fi x ctx, ctx.Length)
+
+let rec genAppTerm (ls: AppArg list) (ctx: Context) =
+    let t =
+        match ls.Head with
+        | ATmArg s -> s ctx
+        | ATyArg s -> error (Type.info (s ctx)) "unexpected term"
+
+    List.fold (fun t1 f ->
+            match f with
+            | ATmArg t2f ->
+                let t2 = t2f ctx
+                TmApp (Info.con (Term.info t1) (Term.info t2), t1, t2)
+            | ATyArg tyf ->
+                let ty = tyf ctx
+                TmTApp (Info.con (Term.info t1) (Type.info ty), t1, ty)
+        ) t ls.Tail
+
+
+
+%}
+
+%token EOF
+
+%token <Info * string> UCID
+%token <Info * string> LCID
+%token <Info> LAMBDA FORALL LET IN
+%token <Info> LPAREN RPAREN SEMICOLON SEMICOLON2 LCURLY RCURLY MUL ARROW DARROW DOT STAR
+%token <Info> LSQUARE RSQUARE COMMA EQUAL
+%token <Info> ONE TWO
+
+%start start
+%type <Start> start
+
+%%
+
+kind
+    : LPAREN kind RPAREN { $2 }
+    | STAR { KdStar $1 }
+    | kind DARROW kind {
+            let (k1, k2) = $1, $3
+            KdOp (Info.con (Kind.info k1) (Kind.info k2), k1, k2)
+        }
+
+atomicType
+    : LPAREN type RPAREN { $2 }
+    | UCID { fun ctx ->
+            let (fi, tyX) = $1
+            TyVar (fi, Context.name2index fi tyX ctx, ctx.Length)
+        }
+    | type ARROW type { fun ctx ->
+            let (ty1, ty2) = $1 ctx, $3 ctx
+            TyFun (Info.con (Type.info ty1) (Type.info ty2), ty1, ty2)
+        }
+    | type MUL type { fun ctx ->
+            let (ty1, ty2) = $1 ctx, $3 ctx
+            TyPair (Info.con (Type.info ty1) (Type.info ty2), ty1, ty2)
+        }
+    | FORALL UCID DOT type { fun ctx ->
+            let tyX = snd $2
+            let ctx' = Context.addName tyX ctx
+            let ty = $4 ctx'
+            TyAll (Info.con $1 (Type.info ty), tyX, KdStar None, ty)
+        }
+    | FORALL UCID SEMICOLON2 kind DOT type { fun ctx ->
+            let tyX = snd $2
+            let k = $4
+            let ctx' = Context.addName tyX ctx
+            let ty = $6 ctx'
+            TyAll (Info.con $1 (Type.info ty), tyX, k, ty)
+        }
+    | LAMBDA UCID DOT type { fun ctx ->
+            let tyX = snd $2
+            let ctx' = Context.addName tyX ctx
+            let ty = $4 ctx'
+            TyAbs (Info.con $1 (Type.info ty), tyX, KdStar None, ty)
+        }
+    | LAMBDA UCID SEMICOLON2 kind DOT type { fun ctx ->
+            let tyX = snd $2
+            let k = $4
+            let ctx' = Context.addName tyX ctx
+            let ty = $6 ctx'
+            TyAbs (Info.con $1 (Type.info ty), tyX, k, ty)
+        }
+    
+
+appType
+    : atomicType appType { $1 :: $2 }
+    | atomicType { [$1] }
+
+type
+    : appType { fun ctx -> genAppType $1 ctx }
+
+absTerm
+    : LAMBDA LCID SEMICOLON type DOT term { fun ctx ->
+            let x = snd $2
+            let ty = $4 ctx
+            let ctx' = Context.addName x ctx
+            let t = $6 ctx'
+            TmAbs (Info.con $1 (Term.info t), x, ty, t)
+        }
+
+typeAbsTerm
+    : LAMBDA UCID DOT term { fun ctx ->
+            let tyX = snd $2
+            let k = KdStar None
+            let ctx' = Context.addName tyX ctx
+            let t = $4 ctx'
+            TmTAbs (Info.con $1 (Term.info t), tyX, k, t)
+        }
+    | LAMBDA UCID SEMICOLON2 kind DOT term { fun ctx ->
+            let tyX = snd $2
+            let k = $4
+            let ctx' = Context.addName tyX ctx
+            let t = $6 ctx'
+            TmTAbs (Info.con $1 (Term.info t), tyX, k, t)
+        }
+
+atomicTerm
+    : LPAREN term RPAREN { $2 }
+    | LCID { fun ctx -> TmVar (fst $1, Context.name2index (fst $1) (snd $1) ctx, Context.len ctx) }
+    | absTerm { $1 }
+    | typeAbsTerm { $1 }
+    | LCURLY term COMMA term RCURLY { fun ctx ->
+            let t1 = $2 ctx
+            let t2 = $4 ctx
+            TmPair (Info.con (Term.info t1) (Term.info t2), t1, t2)
+        }
+    | LET UCID EQUAL type IN term { fun ctx ->
+            let tyX = snd $2
+            let ty = $4 ctx
+            let ctx' = Context.addName tyX ctx
+            let t = $6 ctx'
+            TmTDef (Info.con $1 (Term.info t), tyX, ty, t)
+        }
+
+projTerm
+    : atomicTerm { $1 }
+    | projTerm DOT ONE { fun ctx -> let t = $1 ctx in TmFst (Info.con (Term.info t) $3, t) }
+    | projTerm DOT TWO { fun ctx -> let t = $1 ctx in TmSnd (Info.con (Term.info t) $3, t) }
+
+appTerm
+    : projTerm appTerm { ATmArg $1 :: $2 }
+    | LSQUARE type RSQUARE appTerm { ATyArg $2 :: $4 }
+    | projTerm { [ATmArg $1] }
+    | LSQUARE type RSQUARE { [ATyArg $2] }
+
+term
+    : appTerm { genAppTerm $1 }
+
+start
+    : term { $1 }
